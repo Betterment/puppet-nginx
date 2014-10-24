@@ -2,21 +2,21 @@ require 'formula'
 
 class Nginx < Formula
   homepage 'http://nginx.org/'
-  url 'http://nginx.org/download/nginx-1.4.4.tar.gz'
-  sha1 '304d5991ccde398af2002c0da980ae240cea9356'
-  version '1.4.4-boxen1'
+  url 'http://nginx.org/download/nginx-1.6.2.tar.gz'
+  sha1 '1a5458bc15acf90eea16353a1dd17285cf97ec35'
+  version '1.6.2-boxen1'
 
   depends_on 'pcre'
+  depends_on "passenger" => :optional
+  depends_on "openssl"
 
   skip_clean 'logs'
 
-  def options
-    [
-      ['--with-passenger',   "Compile with support for Phusion Passenger module"],
-      ['--with-webdav',      "Compile with support for WebDAV module"],
-      ['--with-gzip-static', "Compile with support for Gzip Static module"]
-    ]
-  end
+  option "with-passenger", "Compile with support for Phusion Passenger module"
+  option "with-webdav", "Compile with support for WebDAV module"
+  option "with-debug", "Compile with support for debug log"
+  option "with-spdy", "Compile with support for SPDY module"
+  option "with-gunzip", "Compile with support for gunzip module"
 
   def passenger_config_args
       passenger_root = `passenger-config --root`.chomp
@@ -42,9 +42,11 @@ class Nginx < Formula
             "--pid-path=/opt/boxen/data/nginx/nginx.pid",
             "--lock-path=/opt/boxen/data/nginx/nginx.lock"]
 
-    args << passenger_config_args if ARGV.include? '--with-passenger'
-    args << "--with-http_dav_module" if ARGV.include? '--with-webdav'
-    args << "--with-http_gzip_static_module" if ARGV.include? '--with-gzip-static'
+    args << passenger_config_args if build.with? "passenger"
+    args << "--with-http_dav_module" if build.with? "webdav"
+    args << "--with-debug" if build.with? "debug"
+    args << "--with-http_spdy_module" if build.with? "spdy"
+    args << "--with-http_gunzip_module" if build.with? "gunzip"
 
     system "./configure", *args
     system "make"

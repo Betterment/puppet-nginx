@@ -1,10 +1,10 @@
 require 'formula'
 
 class Nginx < Formula
-  homepage 'http://nginx.org/'
-  url 'http://nginx.org/download/nginx-1.6.2.tar.gz'
-  sha256 'b5608c2959d3e7ad09b20fc8f9e5bd4bc87b3bc8ba5936a513c04ed8f1391a18'
-  version '1.6.2-boxen1'
+  homepage 'https://nginx.org/'
+  url 'https://nginx.org/download/nginx-1.10.2.tar.gz'
+  sha256 '1045ac4987a396e2fa5d0011daf8987b612dd2f05181b67507da68cbe7d765c2'
+  version '1.10.2-boxen1'
 
   depends_on 'pcre'
   depends_on "passenger" => :optional
@@ -12,11 +12,18 @@ class Nginx < Formula
 
   skip_clean 'logs'
 
-  option "with-passenger", "Compile with support for Phusion Passenger module"
-  option "with-webdav", "Compile with support for WebDAV module"
-  option "with-debug", "Compile with support for debug log"
-  option "with-spdy", "Compile with support for SPDY module"
-  option "with-gunzip", "Compile with support for gunzip module"
+  def options
+    [
+      ['--with-passenger',   "Compile with support for Phusion Passenger module"],
+      ['--with-webdav',      "Compile with support for WebDAV module"],
+      ['--with-gzip-static', "Compile with support for Gzip Static module"],
+      ['--with-http2',       "Compile with support for the HTTP/2 module"],
+      ['--with-debug',       "Compile with support for debug log"]
+    ]
+  end
+
+  depends_on "pcre"
+  depends_on "openssl" => :recommended
 
   def passenger_config_args
       passenger_root = `passenger-config --root`.chomp
@@ -32,21 +39,26 @@ class Nginx < Formula
   end
 
   def install
+    pcre = Formula["pcre"]
+    openssl = Formula["openssl"]
+    cc_opt = "-I#{pcre.include} -I#{openssl.include}"
+    ld_opt = "-L#{pcre.lib} -L#{openssl.lib}"
+
     args = ["--prefix=#{prefix}",
             "--with-http_ssl_module",
             "--with-pcre",
             "--with-ipv6",
-            "--with-cc-opt='-I#{HOMEBREW_PREFIX}/include'",
-            "--with-ld-opt='-L#{HOMEBREW_PREFIX}/lib'",
+            "--with-cc-opt=#{cc_opt}",
+            "--with-ld-opt=#{ld_opt}",
             "--conf-path=/opt/boxen/config/nginx/nginx.conf",
             "--pid-path=/opt/boxen/data/nginx/nginx.pid",
             "--lock-path=/opt/boxen/data/nginx/nginx.lock"]
 
-    args << passenger_config_args if build.with? "passenger"
-    args << "--with-http_dav_module" if build.with? "webdav"
+    args << passenger_config_args if ARGV.include? '--with-passenger'
+    args << "--with-http_dav_module" if ARGV.include? '--with-webdav'
+    args << "--with-http_gzip_static_module" if ARGV.include? '--with-gzip-static'
+    args << "--with-http_v2_module" if ARGV.include? "--with-http2"
     args << "--with-debug" if build.with? "debug"
-    args << "--with-http_spdy_module" if build.with? "spdy"
-    args << "--with-http_gunzip_module" if build.with? "gunzip"
 
     system "./configure", *args
     system "make"
